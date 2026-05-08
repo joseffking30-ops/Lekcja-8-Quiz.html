@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz: Einkäufe machen - Lekcja 8</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --primary-dark: #003d7a;
+            --secondary: #e7f1ff;
+            --success: #28a745;
+            --error: #dc3545;
+            --text: #333;
+            --white: #ffffff;
+            --bg: #f4f7f9;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+
+        .quiz-container { background: var(--white); width: 100%; max-width: 700px; border-radius: 15px; box-shadow: var(--shadow); overflow: hidden; position: relative; }
+        
+        /* Header & Stats */
+        .header { background: var(--primary); color: var(--white); padding: 20px; text-align: center; }
+        .stats-bar { display: flex; justify-content: space-around; background: var(--primary-dark); padding: 10px; color: var(--white); font-size: 0.9em; }
+        .streak-fire { color: #ffca28; font-weight: bold; }
+
+        /* Progress Bar */
+        .progress-container { height: 8px; background: #ddd; width: 100%; }
+        .progress-fill { height: 100%; background: #4caf50; width: 0%; transition: width 0.3s; }
+
+        /* Question Area */
+        .content { padding: 30px; min-height: 350px; }
+        .question-title { font-size: 1.3em; margin-bottom: 20px; font-weight: 600; color: var(--primary); }
+        .instruction { font-size: 0.9em; color: #666; font-style: italic; margin-bottom: 15px; }
+
+        /* Options */
+        .options-grid { display: grid; gap: 12px; }
+        .option { 
+            padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; cursor: pointer; 
+            transition: all 0.2s; font-size: 1.05em; display: flex; justify-content: space-between; align-items: center;
+        }
+        .option:hover { border-color: var(--primary); background: var(--secondary); }
+        .option.correct { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .option.wrong { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .option.disabled { pointer-events: none; opacity: 0.8; }
+
+        /* Controls */
+        .controls { display: flex; justify-content: space-between; padding: 20px 30px; border-top: 1px solid #eee; }
+        .btn { 
+            padding: 10px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; 
+            transition: opacity 0.2s; 
+        }
+        .btn-next { background: var(--primary); color: white; }
+        .btn-next:disabled { background: #ccc; cursor: not-allowed; }
+        
+        /* Feedback */
+        .feedback { margin-top: 15px; padding: 10px; border-radius: 5px; display: none; font-weight: bold; text-align: center; }
+
+        /* Results Screen */
+        .result-screen { text-align: center; display: none; padding: 40px; }
+        .badge-icon { font-size: 4em; margin-bottom: 20px; }
+        .leaderboard { margin-top: 30px; text-align: left; background: #f9f9f9; padding: 15px; border-radius: 10px; }
+        .leaderboard-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+
+        /* Animations */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop { animation: pop 0.3s ease; }
+
+        @media (max-width: 480px) {
+            .content { padding: 15px; }
+            .question-title { font-size: 1.1em; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="quiz-container" id="quiz-container">
+    <div class="header">
+        <h2 id="quiz-title">Lekcja 8: Robienie Zakupów</h2>
+    </div>
+    
+    <div class="stats-bar">
+        <span>Punkty: <b id="score-display">0</b></span>
+        <span>Streak: <span class="streak-fire" id="streak-display">0 🔥</span></span>
+        <span>Pytanie: <b id="current-index">1</b>/<span id="total-questions">10</span></span>
+    </div>
+
+    <div class="progress-container">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="content" id="question-area">
+        <div class="instruction" id="instruction-text">Wybierz poprawną odpowiedź</div>
+        <div class="question-title" id="question-text">Pytanie pojawi się tutaj...</div>
+        <div class="options-grid" id="options-container">
+            <!-- Options added via JS -->
+        </div>
+        <div class="feedback" id="feedback-message"></div>
+    </div>
+
+    <div class="controls" id="controls">
+        <button class="btn btn-next" id="next-btn" disabled>Dalej</button>
+    </div>
+
+    <!-- Final Result Screen -->
+    <div class="result-screen" id="result-screen">
+        <div id="badge-area" class="badge-icon">🏆</div>
+        <h2 id="result-title">Gratulacje!</h2>
+        <p id="result-summary">Twój wynik to 0/10</p>
+        <div class="leaderboard">
+            <strong>Ranking Uczniów:</strong>
+            <div class="leaderboard-item"><span>1. Ty</span> <span id="user-final-score">0 pkt</span></div>
+            <div class="leaderboard-item"><span>2. Anna M.</span> <span>950 pkt</span></div>
+            <div class="leaderboard-item"><span>3. Hans K.</span> <span>820 pkt</span></div>
+        </div>
+        <button class="btn btn-next" style="margin-top: 25px;" onclick="location.reload()">Spróbuj ponownie</button>
+    </div>
+</div>
+
+<script>
+    const questions = [
+        {
+            type: 'mcq',
+            instruction: 'Przekształć zdanie na pytanie (du-Form): "Ja, ich stehe jeden Morgen gegen sechs Uhr auf."',
+            question: 'Jak brzmi pytanie?',
+            options: [
+                'Stehst ty jeden Morgen auf?',
+                'Stehst du jeden Morgen gegen sechs Uhr auf?',
+                'Stehe du gegen sechs Uhr?',
+                'Du stehst jeden Morgen?'
+            ],
+            correct: 1
+        },
+        {
+            type: 'mcq',
+            instruction: 'Wstaw odpowiedni rodzajnik w Dativie: "Die Krankenschwester hilft _______ (die Patientin)."',
+            question: 'Jaka forma jest poprawna?',
+            options: [
+                'der Patientin',
+                'die Patientin',
+                'den Patientin',
+                'dem Patientin'
+            ],
+            correct: 0
+        },
+        {
+            type: 'mcq',
+            instruction: 'Dopasuj godzinę: "Es ist acht Uhr siebenundvierzig (Minuten)."',
+            question: 'Która to godzina cyfrowo?',
+            options: [
+                '8:13',
+                '9:13',
+                '8:47',
+                '7:47'
+            ],
+            correct: 2
+        },
+        {
+            type: 'mcq',
+            instruction: 'Które słowo nie pasuje (Welches Wort passt nicht)?',
+            question: 'Banane – Kirsche – Kartoffel – Pfirsich',
+            options: [
+                'Banane',
+                'Kirsche',
+                'Kartoffel (bo to warzywo)',
+                'Pfirsich'
+            ],
+            correct: 2
+        },
+        {
+            type: 'mcq',
+            instruction: 'Dopasuj polskie znaczenie do słowa: "mager"',
+            question: 'Co oznacza to słowo?',
+            options: [
+                'Tłusty',
+                'Chudy',
+                'Świeży',
+                'Tani'
+            ],
+            correct: 1
+        },
+        {
+            type: 'mcq',
+            instruction: 'Gramatyka (Komparativ): Jak brzmi stopień wyższy od "viel" (dużo)?',
+            question: 'Viel -> ?',
+            options: [
+                'vieler',
+                'besser',
+                'mehr',
+                'lieber'
+            ],
+            correct: 2
+        },
+        {
+            type: 'mcq',
+            instruction: 'Na podstawie dialogu: Ile kosztuje dzisiaj kurczak (Hähnchen)?',
+            question: 'Cena kurczaka to:',
+            options: [
+                '2.99 za kilo',
+                '3.50 za kilo',
+                'Jest dzisiaj drogi',
+                '1.99 za sztukę'
+            ],
+            correct: 0
+        },
+        {
+            type: 'mcq',
+            instruction: 'Jednostki miary: Co to jest "ein Pfund"?',
+            question: 'Wybierz wagę:',
+            options: [
+                '1000g',
+                '100g',
+                '500g',
+                '250g'
+            ],
+            correct: 2
+        },
+        {
+            type: 'mcq',
+            instruction: 'Gramatyka (Akkusativ): "Ich brauche _______ Lippenstift (m)."',
+            question: 'Wstaw rodzajnik nieokreślony:',
+            options: [
+                'ein',
+                'einen',
+                'eine',
+                'einem'
+            ],
+            correct: 1
+        },
+        {
+            type: 'mcq',
+            instruction: 'Gdzie kupisz chleb (Brot)?',
+            question: 'Wskaż odpowiedni sklep:',
+            options: [
+                'Metzgerei',
+                'Apotheke',
+                'Bäckerei',
+                'Kiosk'
+            ],
+            correct: 2
+        }
+    ];
+
+    let currentIdx = 0;
+    let score = 0;
+    let streak = 0;
+    let maxStreak = 0;
+    let answered = false;
+
+    // Elements
+    const qText = document.getElementById('question-text');
+    const qInst = document.getElementById('instruction-text');
+    const optionsCont = document.getElementById('options-container');
+    const nextBtn = document.getElementById('next-btn');
+    const feedback = document.getElementById('feedback-message');
+    const currentIdxDisplay = document.getElementById('current-index');
+    const totalDisplay = document.getElementById('total-questions');
+    const progressFill = document.getElementById('progress-fill');
+    const scoreDisplay = document.getElementById('score-display');
+    const streakDisplay = document.getElementById('streak-display');
+
+    function initQuiz() {
+        totalDisplay.innerText = questions.length;
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        answered = false;
+        nextBtn.disabled = true;
+        feedback.style.display = 'none';
+        
+        const q = questions[currentIdx];
+        qText.innerText = q.question;
+        qInst.innerText = q.instruction;
+        currentIdxDisplay.innerText = currentIdx + 1;
+        
+        // Progress
+        const progress = ((currentIdx) / questions.length) * 100;
+        progressFill.style.width = `${progress}%`;
+
+        optionsCont.innerHTML = '';
+        q.options.forEach((opt, index) => {
+            const div = document.createElement('div');
+            div.className = 'option';
+            div.innerHTML = `<span>${opt}</span>`;
+            div.onclick = () => checkAnswer(index, div);
+            optionsCont.appendChild(div);
+        });
+    }
+
+    function checkAnswer(selectedIdx, element) {
+        if (answered) return;
+        answered = true;
+        
+        const correctIdx = questions[currentIdx].correct;
+        const allOptions = document.querySelectorAll('.option');
+        
+        if (selectedIdx === correctIdx) {
+            element.classList.add('correct');
+            score += 100 + (streak * 10);
+            streak++;
+            if (streak > maxStreak) maxStreak = streak;
+            showFeedback("Sehr gut! +100 pkt", true);
+        } else {
+            element.classList.add('wrong');
+            allOptions[correctIdx].classList.add('correct');
+            streak = 0;
+            showFeedback("Niestety błędnie...", false);
+        }
+
+        allOptions.forEach(opt => opt.classList.add('disabled'));
+        scoreDisplay.innerText = score;
+        streakDisplay.innerText = `${streak} 🔥`;
+        nextBtn.disabled = false;
+        
+        if (currentIdx === questions.length - 1) {
+            nextBtn.innerText = "Zobacz wyniki";
+        }
+    }
+
+    function showFeedback(msg, isCorrect) {
+        feedback.innerText = msg;
+        feedback.style.display = 'block';
+        feedback.style.color = isCorrect ? 'var(--success)' : 'var(--error)';
+        feedback.classList.add('animate-pop');
+        setTimeout(() => feedback.classList.remove('animate-pop'), 300);
+    }
+
+    nextBtn.onclick = () => {
+        if (currentIdx < questions.length - 1) {
+            currentIdx++;
+            renderQuestion();
+        } else {
+            showResults();
+        }
+    };
+
+    function showResults() {
+        document.getElementById('question-area').style.display = 'none';
+        document.getElementById('controls').style.display = 'none';
+        document.querySelector('.stats-bar').style.display = 'none';
+        document.getElementById('progress-fill').style.width = '100%';
+        
+        const resultScreen = document.getElementById('result-screen');
+        resultScreen.style.display = 'block';
+        
+        const finalScore = document.getElementById('user-final-score');
+        finalScore.innerText = `${score} pkt`;
+        
+        const summary = document.getElementById('result-summary');
+        const badge = document.getElementById('badge-area');
+        
+        const percent = (score / (questions.length * 100)) * 100;
+
+        if (percent >= 90) {
+            badge.innerText = "🥇";
+            summary.innerText = `Perfekcyjnie! Zdobywasz odznakę Eksperta Zakupów! Wynik: ${score} pkt. Max Streak: ${maxStreak}`;
+        } else if (percent >= 60) {
+            badge.innerText = "🥈";
+            summary.innerText = `Dobry wynik! Odznaka Solidnego Klienta przyznana. Wynik: ${score} pkt.`;
+        } else {
+            badge.innerText = "🥉";
+            summary.innerText = `Wymaga powtórki. Przejrzyj słownictwo jeszcze raz. Wynik: ${score} pkt.`;
+        }
+    }
+
+    initQuiz();
+</script>
+
+</body>
+</html>
